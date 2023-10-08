@@ -1,7 +1,5 @@
 #include "wavltree.h"
 
-#include <stdbool.h>
-
 #define __wavl_parent(pp) ((struct wavl_node *)(pp & ~3))
 #define wavl_parent(x) __wavl_parent((x)->__wavl_parent_parity)
 #define __wavl_parity(pp) ((pp) & 1)
@@ -78,9 +76,9 @@ struct wavl_node *wavl_prev(const struct wavl_node *node)
 }
 
 static inline void __wavl_change_child(struct wavl_node *x,
-                                      struct wavl_node *y,
-                                      struct wavl_node *x_parent,
-                                      struct wavl_root *root)
+                                       struct wavl_node *y,
+                                       struct wavl_node *x_parent,
+                                       struct wavl_root *root)
 {
     if (x_parent) {
         if (x_parent->wavl_left == x)
@@ -92,7 +90,7 @@ static inline void __wavl_change_child(struct wavl_node *x,
 }
 
 void wavl_replace_node(struct wavl_node *victim, struct wavl_node *newnode,
-                      struct wavl_root *root)
+                       struct wavl_root *root)
 {
     struct wavl_node *parent = wavl_parent(victim);
     __wavl_change_child(victim, newnode, parent, root);
@@ -223,31 +221,20 @@ void wavl_insert_fixup(struct wavl_node *x, struct wavl_root *root)
     }
 }
 
-static inline bool wavl_is_2_child(const struct wavl_node *x,
-                                  const struct wavl_node *x_parent)
-{
-    return _wavl_parity(x) == _wavl_parity(x_parent);
-}
-
-static inline bool wavl_is_leaf(const struct wavl_node *x)
-{
-    return !x->wavl_left && !x->wavl_right;
-}
-
 static void wavl_delete_rebalance_3_child(struct wavl_node *x,
         struct wavl_node *x_parent,
         struct wavl_root *root)
 {
     struct wavl_node *x_gparent, *y;
-    bool creates_3_node = false, done = true;
+    int creates_3_node = 0, done = 1;
 
     do {
         x_gparent = wavl_parent(x_parent);
         y = x_parent->wavl_left == x ? x_parent->wavl_right : x_parent->wavl_left;
         creates_3_node = x_gparent
-                         && (_wavl_parity(x_parent) == _wavl_parity(x_gparent));
+                         && (_wavl_parity(x_parent) == _wavl_parity(x_gparent)) ? 1 : 0;
 
-        if (wavl_is_2_child(y, x_parent))
+        if (_wavl_parity(y) == _wavl_parity(x_parent))
             __wavl_demote_rank(x_parent);
         else {
             int y_rank_parity = _wavl_parity(y);
@@ -256,7 +243,7 @@ static void wavl_delete_rebalance_3_child(struct wavl_node *x,
                 __wavl_demote_rank(x_parent);
                 __wavl_demote_rank(y);
             } else {
-                done = false;
+                done = 0;
                 break;
             }
         }
@@ -271,8 +258,7 @@ static void wavl_delete_rebalance_3_child(struct wavl_node *x,
         if (wavl_parity(y->wavl_right) != _wavl_parity(y)) {
             __wavl_rotate_left(x_parent, root);
             __wavl_promote_rank(y);
-            __wavl_demote_rank(x_parent);
-            if (wavl_is_leaf(x_parent))
+            if (x_parent->wavl_left || x_parent->wavl_right)
                 __wavl_demote_rank(x_parent);
         } else {
             __wavl_rotate_right_left(x_parent, root);
@@ -282,8 +268,7 @@ static void wavl_delete_rebalance_3_child(struct wavl_node *x,
         if (wavl_parity(y->wavl_left) != _wavl_parity(y)) {
             __wavl_rotate_right(x_parent, root);
             __wavl_promote_rank(y);
-            __wavl_demote_rank(x_parent);
-            if (wavl_is_leaf(x_parent))
+            if (x_parent->wavl_left || x_parent->wavl_right)
                 __wavl_demote_rank(x_parent);
         } else {
             __wavl_rotate_left_right(x_parent, root);
@@ -295,16 +280,15 @@ static void wavl_delete_rebalance_3_child(struct wavl_node *x,
 static void wavl_delete_rebalance_2_2_leaf(struct wavl_node *x,
         struct wavl_root *root)
 {
-    if (wavl_parity(wavl_parent(x)) == _wavl_parity(x)) {
-        __wavl_demote_rank(x);
-        wavl_delete_rebalance_3_child(x, wavl_parent(x), root);
-    } else
-        __wavl_demote_rank(x);
+    struct wavl_node *x_parent = wavl_parent(x);
+    __wavl_demote_rank(x);
+    if (wavl_parity(x_parent) != _wavl_parity(x))
+        wavl_delete_rebalance_3_child(x, x_parent, root);
 }
 
 void wavl_erase(struct wavl_node *node, struct wavl_root *root)
 {
-    bool is_2_child = false;
+    int is_2_child = 0;
     struct wavl_node *child, *parent;
     if (!node->wavl_left)
         child = node->wavl_right;
@@ -320,7 +304,7 @@ void wavl_erase(struct wavl_node *node, struct wavl_root *root)
         if (child)
             wavl_set_parent(child, parent);
         if (parent) {
-            is_2_child = wavl_is_2_child(node, parent);
+            is_2_child = _wavl_parity(node) == _wavl_parity(parent) ? 1 : 0;
             if (parent->wavl_left == node)
                 parent->wavl_left = child;
             else
@@ -340,7 +324,7 @@ void wavl_erase(struct wavl_node *node, struct wavl_root *root)
     if (child)
         wavl_set_parent(child, parent);
     if (parent) {
-        is_2_child = wavl_is_2_child(node, parent);
+        is_2_child = _wavl_parity(node) == _wavl_parity(parent) ? 1 : 0;
         if (parent->wavl_left == node)
             parent->wavl_left = child;
         else
