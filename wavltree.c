@@ -167,7 +167,8 @@ static void __wavl_rotate_right_left(struct wavl_node *x, struct wavl_root *root
 
 void wavl_insert_fixup(struct wavl_node *x, struct wavl_root *root)
 {
-    struct wavl_node *x_parent = wavl_parent(x);
+    int x_parity, xp_parity;
+    struct wavl_node *x_parent = wavl_parent(x), *tmp;
     if (!x_parent || (x_parent->wavl_left && x_parent->wavl_right))
         return;
     // parent from ((1, 1) to (1, 0), promote
@@ -176,40 +177,45 @@ void wavl_insert_fixup(struct wavl_node *x, struct wavl_root *root)
     while ((x_parent = wavl_parent(x))) {
         // parent now from (2, 2) to (2, 1),
         // or from (1, 2) to (1, 1), no need to climb up
-        if (_wavl_parity(x_parent) != _wavl_parity(x))
+        x_parity = _wavl_parity(x);
+        xp_parity = _wavl_parity(x_parent);
+        if (x_parity != xp_parity)
             break;
-        if (x == x_parent->wavl_left) {
+        tmp = x_parent->wavl_right;
+        if (tmp != x) {
             // parent from (1, 2) to (1, 1), need to climb up
-            if (_wavl_parity(x_parent) != wavl_parity(x_parent->wavl_right)) {
+            if (xp_parity != wavl_parity(tmp)) {
                 __wavl_promote_rank(x_parent);
                 x = x_parent;
                 continue;
             }
-            struct wavl_node * y = x->wavl_right;
-            if (_wavl_parity(x) == wavl_parity(y)) {
+            // parent now is (0, 2)
+            tmp = x->wavl_right;
+            if (x_parity == wavl_parity(tmp)) {
                 __wavl_rotate_right(x_parent, root);
                 __wavl_demote_rank(x_parent);
             } else {
                 __wavl_rotate_left_right(x_parent, root);
-                __wavl_demote_rank(x_parent);
+                __wavl_demote_rank(tmp);
                 __wavl_demote_rank(x);
-                __wavl_demote_rank(y);
+                __wavl_demote_rank(x_parent);
             }
         } else {
-            if (_wavl_parity(x_parent) != wavl_parity(x_parent->wavl_left)) {
+            tmp = x_parent->wavl_left;
+            if (xp_parity != wavl_parity(tmp)) {
                 __wavl_promote_rank(x_parent);
                 x = x_parent;
                 continue;
             }
-            struct wavl_node * y = x->wavl_left;
-            if (_wavl_parity(x) == wavl_parity(y)) {
+            tmp = x->wavl_left;
+            if (x_parity == wavl_parity(tmp)) {
                 __wavl_rotate_left(x_parent, root);
                 __wavl_demote_rank(x_parent);
             } else {
                 __wavl_rotate_right_left(x_parent, root);
-                __wavl_demote_rank(x_parent);
+                __wavl_demote_rank(tmp);
                 __wavl_demote_rank(x);
-                __wavl_demote_rank(y);
+                __wavl_demote_rank(x_parent);
             }
         }
         break;
@@ -222,19 +228,24 @@ static void wavl_delete_rebalance_3_child(struct wavl_node *x,
 {
     struct wavl_node *x_gparent, *y;
     int creates_3_node = 0, done = 1;
+    int xp_parity, y_parity, yl_parity, yr_parity;
 
     do {
         x_gparent = wavl_parent(x_parent);
-        y = x_parent->wavl_left == x ? x_parent->wavl_right : x_parent->wavl_left;
+        xp_parity = wavl_parity(x_parent);
         creates_3_node = x_gparent
-                         && (_wavl_parity(x_parent) == _wavl_parity(x_gparent)) ? 1 : 0;
+                         && (xp_parity == _wavl_parity(x_gparent)) ? 1 : 0;
 
-        if (_wavl_parity(y) == _wavl_parity(x_parent))
+        y = x_parent->wavl_right;
+        if (x == y)
+            y = x_parent->wavl_left;
+        y_parity = _wavl_parity(y);
+        if (y_parity == xp_parity)
             __wavl_demote_rank(x_parent);
         else {
-            int y_rank_parity = _wavl_parity(y);
-            if (y_rank_parity == wavl_parity(y->wavl_left) &&
-                y_rank_parity == wavl_parity(y->wavl_right)) {
+            yl_parity = wavl_parity(y->wavl_left);
+            yr_parity = wavl_parity(y->wavl_right);
+            if ((y_parity == yl_parity) && (y_parity == yr_parity)) {
                 __wavl_demote_rank(x_parent);
                 __wavl_demote_rank(y);
             } else {
@@ -249,8 +260,8 @@ static void wavl_delete_rebalance_3_child(struct wavl_node *x,
     if (done)
         return;
 
-    if (x == x_parent->wavl_left) {
-        if (wavl_parity(y->wavl_right) != _wavl_parity(y)) {
+    if (y != x_parent->wavl_left) {
+        if (y_parity != yr_parity) {
             __wavl_rotate_left(x_parent, root);
             __wavl_promote_rank(y);
             if (x_parent->wavl_left || x_parent->wavl_right)
@@ -260,7 +271,7 @@ static void wavl_delete_rebalance_3_child(struct wavl_node *x,
             __wavl_demote_rank(y);
         }
     } else {
-        if (wavl_parity(y->wavl_left) != _wavl_parity(y)) {
+        if (y_parity != yl_parity) {
             __wavl_rotate_right(x_parent, root);
             __wavl_promote_rank(y);
             if (x_parent->wavl_left || x_parent->wavl_right)
