@@ -168,17 +168,12 @@ static void __wavl_rotate_right_left(struct wavl_node *x, struct wavl_root *root
 void wavl_insert_fixup(struct wavl_node *x, struct wavl_root *root)
 {
     struct wavl_node *x_parent = wavl_parent(x);
-    if (!x_parent)
-        return;
-    // parent from (1, 2) to (1, 1), no need to rebalance
-    if (x_parent->wavl_left && x_parent->wavl_right)
+    if (!x_parent || (x_parent->wavl_left && x_parent->wavl_right))
         return;
     // parent from ((1, 1) to (1, 0), promote
     __wavl_promote_rank(x_parent);
     x = x_parent;
     while ((x_parent = wavl_parent(x))) {
-        if (NULL == x_parent)
-            return;
         // parent now from (2, 2) to (2, 1),
         // or from (1, 2) to (1, 1), no need to climb up
         if (_wavl_parity(x_parent) != _wavl_parity(x))
