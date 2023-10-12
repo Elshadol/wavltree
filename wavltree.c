@@ -173,7 +173,7 @@ void wavl_insert_fixup(struct wavl_node *x, struct wavl_root *root)
     // loop invariant: x'rank increase, and not root
     for (;;) {
         x = x_parent;
-        __wavl_promote_rank(x);
+        __wavl_flip_parity(x);
         x_parent = wavl_parent(x);
         if (!x_parent)
             break;
@@ -189,30 +189,28 @@ void wavl_insert_fixup(struct wavl_node *x, struct wavl_root *root)
                 continue;
             // parent now is (0, 2)
             tmp = x->wavl_right;
-            if (x_parity == wavl_parity(tmp)) {
+            __wavl_flip_parity(x_parent);
+            if (x_parity == wavl_parity(tmp)) 
                 // x is (1, 2)
                 __wavl_rotate_right(x_parent, root);
-                __wavl_demote_rank(x_parent);
-            } else {
+            else {
                 // x is (2, 1)
+                __wavl_flip_parity(tmp);
+                __wavl_flip_parity(x);
                 __wavl_rotate_left_right(x_parent, root);
-                __wavl_demote_rank(tmp);
-                __wavl_demote_rank(x);
-                __wavl_demote_rank(x_parent);
             }
         } else {
             tmp = x_parent->wavl_left;
             if (xp_parity != wavl_parity(tmp)) 
                 continue;
             tmp = x->wavl_left;
-            if (x_parity == wavl_parity(tmp)) {
+            __wavl_flip_parity(x_parent);
+            if (x_parity == wavl_parity(tmp)) 
                 __wavl_rotate_left(x_parent, root);
-                __wavl_demote_rank(x_parent);
-            } else {
+            else {
+                __wavl_flip_parity(tmp);
+                __wavl_flip_parity(x);
                 __wavl_rotate_right_left(x_parent, root);
-                __wavl_demote_rank(tmp);
-                __wavl_demote_rank(x);
-                __wavl_demote_rank(x_parent);
             }
         }
         break;
