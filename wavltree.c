@@ -1,15 +1,14 @@
 #include "wavltree.h"
 
-#define __wavl_parent(pp) ((struct wavl_node *)(pp & ~3))
-#define wavl_parent(x) __wavl_parent((x)->__wavl_parent_parity)
 #define __wavl_parity(pp) ((pp) & 1)
 #define _wavl_parity(x)  __wavl_parity((x)->__wavl_parent_parity)
 #define wavl_parity(x) ((x) ? _wavl_parity((x)) : 1)
+#define __wavl_flip_parity(x) do { (x)->__wavl_parent_parity ^= 1; } while (0)
+#define __wavl_parent(pp) ((struct wavl_node *)(pp & ~3))
+#define wavl_parent(x) __wavl_parent((x)->__wavl_parent_parity)
 #define wavl_set_parent(n, p) do {\
     (n)->__wavl_parent_parity = _wavl_parity(n) | (unsigned long)p; \
 } while (0)
-#define __wavl_promote_rank(x) do { (x)->__wavl_parent_parity ^= 1; } while (0)
-#define __wavl_demote_rank(x) do { (x)->__wavl_parent_parity ^= 1; } while (0)
 
 struct wavl_node *wavl_first(const struct wavl_root *root)
 {
