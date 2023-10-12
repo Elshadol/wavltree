@@ -39,7 +39,7 @@ struct wavl_node *wavl_next(const struct wavl_node *node)
 {
     struct wavl_node *parent;
 
-    if (wavl_parent(node) == node)
+    if (node == NULL)
         return NULL;
 
     if (node->wavl_right) {
@@ -59,7 +59,7 @@ struct wavl_node *wavl_prev(const struct wavl_node *node)
 {
     struct wavl_node *parent;
 
-    if (wavl_parent(node) == node)
+    if (node == NULL)
         return NULL;
 
     if (node->wavl_left) {
@@ -185,7 +185,7 @@ void wavl_insert_fixup(struct wavl_node *x, struct wavl_root *root)
             break;
         tmp = x_parent->wavl_right;
         if (tmp != x) {
-            // parent from (1, 2) to (1, 1), need to climb up
+            // parent from (1, 1) to (2, 1), need to climb up
             if (xp_parity != wavl_parity(tmp)) 
                 continue;
             // parent now is (0, 2)
@@ -220,42 +220,51 @@ void wavl_insert_fixup(struct wavl_node *x, struct wavl_root *root)
     }
 }
 
-static void __wavl_fixup_3_child(struct wavl_node *x,
-                                 struct wavl_node *x_parent,
-                                 struct wavl_root *root)
+static void __wavl_erase_fixup(struct wavl_node *x,
+                               struct wavl_node *x_parent,
+                               struct wavl_root *root)
 {
     struct wavl_node *y;
     int xp_parity, y_parity, yl_parity, yr_parity;
-    // loop invariant: x is a 3-child and not root
+    if (!x_parent->wavl_left && !x_parent->wavl_right) {
+        // if parent is a 2-2 leaf, demote and retry from it
+        __wavl_flip_parity(x_parent);
+        x = x_parent;
+        x_parent = wavl_parent(x_parent);
+        if (!x_parent)
+            return;
+    }
+    // parent used to be (1, 1), now is (1, 2), didnot produce a 3-child
+    xp_parity = _wavl_parity(x_parent);
+    if (wavl_parity(x) == xp_parity)
+       return;
+    // now, x is a 3-child
     for (;;) {
-        xp_parity = _wavl_parity(x_parent);
         y = x_parent->wavl_right;
         if (x != y) {
             y_parity = _wavl_parity(y);
             // x_parent is (3, 2), demote x_parent and climb up
             if (y_parity == xp_parity)
-                __wavl_demote_rank(x_parent);
+                __wavl_flip_parity(x_parent);
             else {
                 yl_parity = wavl_parity(y->wavl_left);
                 yr_parity = wavl_parity(y->wavl_right);
-                // x_parent is (3, 1),  y is (2, 2), demote both  x_parent and y, then climb up
-                if ((y_parity == yl_parity) && (y_parity == yr_parity)) {
-                    __wavl_demote_rank(x_parent);
-                    __wavl_demote_rank(y);
-                } else {
+                // x_parent is (3, 1),  y is (2, 2), demote both x_parent and y, then climb up
+                __wavl_flip_parity(y);
+                if ((y_parity == yl_parity) && (y_parity == yr_parity))
+                    __wavl_flip_parity(x_parent);
+                else {
                     // perform a single or double rotation, then we're done
                     // x_parent is (1, 3), y is (1, 2), (2, 1) or (1, 1)
                     if (y_parity != yr_parity) {
                         // y is (2, 1) or (1, 1)
                         __wavl_rotate_left(x_parent, root);
-                        __wavl_promote_rank(y);
                         if (x_parent->wavl_left || x_parent->wavl_right)
-                            __wavl_demote_rank(x_parent);
-                    } else {
+                            // if parent become a leaf, demote it again, but double demote do nothing,
+                            __wavl_flip_parity(x_parent);
+                    } else
                         // y is (1, 2)
                         __wavl_rotate_right_left(x_parent, root);
-                        __wavl_demote_rank(y);
-                    }
                     break;
                 }
             }
@@ -263,92 +272,64 @@ static void __wavl_fixup_3_child(struct wavl_node *x,
             y = x_parent->wavl_left;
             y_parity = _wavl_parity(y);
             if (y_parity == xp_parity)
-                __wavl_demote_rank(x_parent);
+                __wavl_flip_parity(x_parent);
             else {
                 yl_parity = wavl_parity(y->wavl_right);
                 yr_parity = wavl_parity(y->wavl_left);
-                if ((y_parity == yl_parity) && (y_parity == yr_parity)) {
-                    __wavl_demote_rank(x_parent);
-                    __wavl_demote_rank(y);
-                } else {
+                __wavl_flip_parity(y);
+                if ((y_parity == yl_parity) && (y_parity == yr_parity))
+                    __wavl_flip_parity(x_parent);
+                else {
                     if (y_parity != yr_parity) {
                         __wavl_rotate_right(x_parent, root);
-                        __wavl_promote_rank(y);
                         if (x_parent->wavl_right || x_parent->wavl_left)
-                            __wavl_demote_rank(x_parent);
-                    } else {
+                            __wavl_flip_parity(x_parent);
+                    } else
                         __wavl_rotate_left_right(x_parent, root);
-                        __wavl_demote_rank(y);
-                    }
                     break;
                 }
             }
         }
+        // loop invariant: x is a 3-child and not root
         x = x_parent;
         x_parent = wavl_parent(x_parent);
-        // loop invariant: x is a 3-child and not root
-        if (!x_parent || _wavl_parity(x_parent) == _wavl_parity(x))
+        if (!x_parent)
+            break;
+        xp_parity = _wavl_parity(x_parent);
+        if (xp_parity == _wavl_parity(x))
             break;
     }
 }
 
-static inline void __wavl_fixup_2_2_leaf(struct wavl_node *x,
-        struct wavl_root *root)
-{
-    __wavl_demote_rank(x);
-    struct wavl_node *x_parent = wavl_parent(x);
-    // if x is a 3-child and not root, need deal with 3-child
-    if (x_parent && _wavl_parity(x_parent) != _wavl_parity(x))
-        __wavl_fixup_3_child(x, x_parent, root);
-}
-
 void wavl_erase(struct wavl_node *node, struct wavl_root *root)
 {
-    int is_2_child = 0;
-    struct wavl_node *child, *parent;
-    if (!node->wavl_left)
-        child = node->wavl_right;
-    else if (!node->wavl_right)
-        child = node->wavl_left;
-    else {
-        struct wavl_node *old = node, *tmp;
-        node = node->wavl_right;
-        while ((tmp = node->wavl_left))
-            node = tmp;
-        node->wavl_left = old->wavl_left;
-        wavl_set_parent(old->wavl_left, node);
-        parent = wavl_parent(node);
-        is_2_child = _wavl_parity(node) == _wavl_parity(parent) ? 1 : 0;
-        node->__wavl_parent_parity = old->__wavl_parent_parity;
-        child = node->wavl_right;
-        if (node != old->wavl_right) {
-            node->wavl_right = old->wavl_right;
-            wavl_set_parent(old->wavl_right, node);
+    struct wavl_node *child = node->wavl_left,
+                          *tmp = node->wavl_right,
+                           *parent;
+    unsigned long pp = node->__wavl_parent_parity;
+    if (!child || !tmp) {
+        tmp = child = (!tmp ? child : tmp);
+        pp = (pp & ~3);
+        parent = (struct wavl_node *)pp;
+    } else {
+        parent = tmp;
+        while (tmp->wavl_left != NULL)
+            tmp = tmp->wavl_left;
+        tmp->wavl_left = child;
+        wavl_set_parent(child, tmp);
+        child = tmp->wavl_right;
+        if (parent != tmp) {
+            wavl_set_parent(parent, tmp);
+            tmp->wavl_right = parent;
+            parent = wavl_parent(tmp);
             parent->wavl_left = child;
-            if (child)
-                wavl_set_parent(child, parent);
-        } else
-            parent = node;
-        __wavl_change_child(old, node, wavl_parent(old), root);
-        goto ERASE_FIXUP;
+        }
+        tmp->__wavl_parent_parity = pp;
+        pp = (pp & ~3);
     }
-    parent = wavl_parent(node);
+    __wavl_change_child(node, tmp, (struct wavl_node *)pp, root);
     if (child)
         wavl_set_parent(child, parent);
-    if (parent) {
-        is_2_child = _wavl_parity(node) == _wavl_parity(parent) ? 1 : 0;
-        if (parent->wavl_left == node)
-            parent->wavl_left = child;
-        else
-            parent->wavl_right = child;
-    } else
-        root->wavl_node = child;
-
-ERASE_FIXUP:
-    if (parent) {
-        if (is_2_child)
-            __wavl_fixup_3_child(child, parent, root);
-        else if (!child && parent->wavl_left == parent->wavl_right)
-            __wavl_fixup_2_2_leaf(parent, root);
-    }
+    if (parent)
+        __wavl_erase_fixup(child, parent, root);
 }
