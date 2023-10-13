@@ -40,14 +40,16 @@ static inline void __wavl_change_child(struct wavl_node* x,
         root->wavl_node = y;
 }
 
-static inline void __wavl_set_parent_parity(struct wavl_node *x,
-        struct wavl_node *parent, int parity)
+static inline void
+__wavl_set_parent_parity(struct wavl_node *x, struct wavl_node *p,
+                         int parity)
 {
-    x->__wavl_parent_parity = (unsigned long)parent | parity;
+    x->__wavl_parent_parity = (unsigned long)p | parity;
 }
 
-static inline void __wavl_rotate_set_parents_parity(struct wavl_node* x,
-        struct wavl_node* y, int parity, struct wavl_root* root)
+static inline void
+__wavl_rotate_set_parents(struct wavl_node* x, struct wavl_node* y,
+                          struct wavl_root* root, int parity)
 {
     struct wavl_node* x_parent = wavl_parent(x);
     y->__wavl_parent_parity = x->__wavl_parent_parity;
@@ -58,6 +60,7 @@ static inline void __wavl_rotate_set_parents_parity(struct wavl_node* x,
 void wavl_insert_fixup(struct wavl_node* x, struct wavl_root* root)
 {
     int x_parity, xp_parity;
+    // loop invariant: x's rank demote, and x is not root
     struct wavl_node *x_parent = wavl_parent(x), *tmp, *tmp1;
     while (x_parent) {
         x_parity = _wavl_parity(x);
@@ -90,7 +93,7 @@ void wavl_insert_fixup(struct wavl_node* x, struct wavl_root* root)
             x->wavl_right = x_parent;
             if (tmp1)
                 wavl_set_parent(tmp1, x_parent);
-            __wavl_rotate_set_parents_parity(x_parent, x, xp_parity ^ 1, root);
+            __wavl_rotate_set_parents(x_parent, x, root, xp_parity ^ 1);
             break;
         } else {
             tmp = x_parent->wavl_left;
@@ -113,7 +116,7 @@ void wavl_insert_fixup(struct wavl_node* x, struct wavl_root* root)
             x->wavl_left = x_parent;
             if (tmp1)
                 wavl_set_parent(tmp1, x_parent);
-            __wavl_rotate_set_parents_parity(x_parent, x, xp_parity ^ 1, root);
+            __wavl_rotate_set_parents(x_parent, x, root, xp_parity ^ 1);
             break;
         }
     }
@@ -149,7 +152,7 @@ static void __wavl_erase_fixup(struct wavl_node* x,
                 x_parent = wavl_parent(x_parent);
                 continue;
             }
-           tmp1 = y->wavl_right;
+            tmp1 = y->wavl_right;
             tmp2 = y->wavl_left;
             p1 = wavl_parity(tmp1);
             if (y_parity == p1) {
@@ -181,7 +184,7 @@ static void __wavl_erase_fixup(struct wavl_node* x,
             y->wavl_left = x_parent;
             if (tmp2)
                 wavl_set_parent(tmp2, x_parent);
-            __wavl_rotate_set_parents_parity(x_parent, y, xp_parity, root);
+            __wavl_rotate_set_parents(x_parent, y, root, xp_parity);
             break;
         } else {
             y = x_parent->wavl_left;
@@ -222,7 +225,7 @@ static void __wavl_erase_fixup(struct wavl_node* x,
             y->wavl_right = x_parent;
             if (tmp2)
                 wavl_set_parent(tmp2, x_parent);
-            __wavl_rotate_set_parents_parity(x_parent, y, xp_parity, root);
+            __wavl_rotate_set_parents(x_parent, y, root, xp_parity);
             break;
         }
         // loop invariant: x is not root, and x is a 3-child
