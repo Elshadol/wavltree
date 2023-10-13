@@ -78,7 +78,6 @@ void wavl_insert_fixup(struct wavl_node* x, struct wavl_root* root)
             tmp = x->wavl_right;
             // x is 2-1, perform a double rot
             if (x_parity != wavl_parity(tmp)) {
-                __wavl_promote_rank(tmp);
                 x->wavl_right = tmp1 = tmp->wavl_left;
                 tmp->wavl_left = x;
                 if (tmp1)
@@ -103,7 +102,6 @@ void wavl_insert_fixup(struct wavl_node* x, struct wavl_root* root)
             }
             tmp = x->wavl_left;
             if (x_parity != wavl_parity(tmp)) {
-                __wavl_promote_rank(tmp);
                 x->wavl_left = tmp1 = tmp->wavl_right;
                 tmp->wavl_right = x;
                 if (tmp1)
