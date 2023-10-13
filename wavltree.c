@@ -149,12 +149,12 @@ static void __wavl_erase_fixup(struct wavl_node* x,
                 x_parent = wavl_parent(x_parent);
                 continue;
             }
-            tmp1 = y->wavl_left;
-            tmp2 = y->wavl_right;
+           tmp1 = y->wavl_right;
+            tmp2 = y->wavl_left;
             p1 = wavl_parity(tmp1);
-            p2 = wavl_parity(tmp2);
-            if (y_parity == p2) {
-                if (y_parity == p1) {
+            if (y_parity == p1) {
+                p2 = wavl_parity(tmp2);
+                if (y_parity == p2) {
                     // parent is 3-1, sibling is 2-2, demote both parent and sibling,
                     // then retry from parent
                     __wavl_demote_rank(y);
@@ -164,17 +164,17 @@ static void __wavl_erase_fixup(struct wavl_node* x,
                     continue;
                 }
                 // sibling is 1-2, perform a double rot, demote y
-                y->wavl_left = tmp2 = tmp1->wavl_right;
-                tmp1->wavl_right = y;
-                if (tmp2)
-                    wavl_set_parent(tmp2, y);
-                __wavl_set_parent_parity(y, tmp1, y_parity ^ 1);
-                y = tmp1;
+                y->wavl_left = tmp1 = tmp2->wavl_right;
+                tmp2->wavl_right = y;
+                if (tmp1)
+                    wavl_set_parent(tmp1, y);
+                __wavl_set_parent_parity(y, tmp2, y_parity ^ 1);
+                y = tmp2;
             } else {
                 // y is 1-1, or 2-1, perform a single rot
                 // note: after a rot, if parent become a leaf, demote it twice
                 // otherwise demote parent once
-                if (x_parent->wavl_left || tmp1)   
+                if (x_parent->wavl_left || tmp2)
                     xp_parity ^= 1;
             }
             x_parent->wavl_right = tmp2 = y->wavl_left;
@@ -196,10 +196,10 @@ static void __wavl_erase_fixup(struct wavl_node* x,
             tmp1 = y->wavl_left;
             tmp2 = y->wavl_right;
             p1 = wavl_parity(tmp1);
-            p2 = wavl_parity(tmp2);
             if (y_parity == p1) {
+                p2 = wavl_parity(tmp2);
                 if (y_parity == p2) {
-                    // parent is 3-1, sibling is 2-2, demote both parent and sibling,
+                    // parent is 1-3, sibling is 2-2, demote both parent and sibling,
                     // then retry from parent
                     __wavl_demote_rank(y);
                     __wavl_demote_rank(x_parent);
