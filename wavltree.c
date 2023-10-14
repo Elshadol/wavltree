@@ -67,10 +67,10 @@ __wavl_rotate_set_parents(struct wavl_node* old, struct wavl_node* new,
 
 void wavl_insert_fixup(struct wavl_node* node, struct wavl_root* root)
 {
-    int parity, p_parity;
+    int parity, p_parity = _wavl_parity(node);
     struct wavl_node *parent = wavl_parent(node), *tmp, *tmp1;
     while (parent) {
-        parity = _wavl_parity(node);
+        parity = p_parity;
         p_parity = _wavl_parity(parent);
         // parent from 2-2 to 2-1 or from 1-2 to 1-1, we're done
         if (parity != p_parity)
@@ -79,6 +79,7 @@ void wavl_insert_fixup(struct wavl_node* node, struct wavl_root* root)
         if (node != tmp) {
             // parent from 1-1 to 0-1, promote rank of parent, then climb up
             if (p_parity != wavl_parity(tmp)) {
+                p_parity ^= 1;
                 __wavl_promote_rank(parent);
                 node = parent;
                 parent = wavl_parent(node);
@@ -107,6 +108,7 @@ void wavl_insert_fixup(struct wavl_node* node, struct wavl_root* root)
         } else {
             tmp = parent->wavl_left;
             if (p_parity != wavl_parity(tmp)) {
+                p_parity ^= 1;
                 __wavl_promote_rank(parent);
                 node = parent;
                 parent = wavl_parent(node);
