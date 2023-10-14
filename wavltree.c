@@ -155,6 +155,7 @@ static void __wavl_erase_fixup(struct wavl_node* node, struct wavl_node* parent,
             s_parity = _wavl_parity(sibling);
             if (s_parity == p_parity) {
                 // parent is 3-2, demote and retry from it
+                s_parity ^= 1;       // s_parity now backup parent's rank parity
                 __wavl_demote_rank(parent);
                 node = parent;
                 parent = wavl_parent(parent);
@@ -200,6 +201,7 @@ static void __wavl_erase_fixup(struct wavl_node* node, struct wavl_node* parent,
             sibling = parent->wavl_left;
             s_parity = _wavl_parity(sibling);
             if (s_parity == p_parity) {
+                s_parity ^= 1; 
                 __wavl_demote_rank(parent);
                 node = parent;
                 parent = wavl_parent(parent);
@@ -235,7 +237,8 @@ static void __wavl_erase_fixup(struct wavl_node* node, struct wavl_node* parent,
             break;
         }
         // loop invariant: node is not root, and node is a 3-child
-    } while (parent && (p_parity = _wavl_parity(parent)) != _wavl_parity(node));
+        // remenber that s_parity stores node's rank parity in continue statements
+    } while (parent && (p_parity = _wavl_parity(parent)) != s_parity);
 }
 
 void wavl_erase(struct wavl_node* node, struct wavl_root* root)
