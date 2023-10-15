@@ -245,12 +245,11 @@ static void __wavl_erase_fixup(struct wavl_node* node, struct wavl_node* parent,
 
 void wavl_erase(struct wavl_node* node, struct wavl_root* root)
 {
-    struct wavl_node *child = node->wavl_left, *tmp = node->wavl_right, *parent;
-    unsigned long pp = node->__wavl_parent_parity;
+    struct wavl_node *child = node->wavl_left, *tmp = node->wavl_right;
+    struct wavl_node *parent, *parent1 = wavl_parent(node);
     if (!child || !tmp) {
         tmp = child = (!tmp ? child : tmp);
-        pp = (pp & ~3);
-        parent = (struct wavl_node*)pp;
+        parent = parent1;
     } else {
         parent = tmp;
         while (tmp->wavl_left != NULL)
@@ -264,8 +263,7 @@ void wavl_erase(struct wavl_node* node, struct wavl_root* root)
             parent = wavl_parent(tmp);
             parent->wavl_left = child;
         }
-        tmp->__wavl_parent_parity = pp;
-        pp = (pp & ~3);
+        tmp->__wavl_parent_parity = node->__wavl_parent_parity;
     }
     __wavl_change_child(node, tmp, (struct wavl_node*)pp, root);
     if (child)
