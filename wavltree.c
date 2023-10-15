@@ -146,7 +146,7 @@ static void __wavl_erase_fixup(struct wavl_node* node, struct wavl_node* parent,
             return;
     }
     p_parity = _wavl_parity(parent);
-    //// parent from a binary to unary, no need to climb up
+    // parent from a binary to unary, no need to climb up
     if (wavl_parity(node) == p_parity)
         return;
     do {
@@ -154,7 +154,7 @@ static void __wavl_erase_fixup(struct wavl_node* node, struct wavl_node* parent,
         if (node != sibling) {
             s_parity = _wavl_parity(sibling);
             if (s_parity == p_parity) { 
-                 // parent is 3-2, demote parent once and retry from it
+                // parent is 3-2, demote parent once and retry from it
                 __wavl_demote_rank(parent);
                 node = parent;
                 parent = wavl_parent(parent);
@@ -166,7 +166,7 @@ static void __wavl_erase_fixup(struct wavl_node* node, struct wavl_node* parent,
             if (s_parity == p1) {
                 p2 = wavl_parity(tmp2);
                 if (s_parity == p2) {
-                     // parent is 3-1, sibling is 2-2, demote both parent and sibling once,
+                    // parent is 3-1, sibling is 2-2, demote both parent and sibling once,
                     // then retry from parent
                     __wavl_demote_rank(sibling);
                     __wavl_demote_rank(parent);
@@ -176,7 +176,6 @@ static void __wavl_erase_fixup(struct wavl_node* node, struct wavl_node* parent,
                 }
                 // sibling is 1-2, perform a double rot, demote sibling once,
                 // demote parent twice, promote tmp2 twice,
-                sibling->wavl_left = tmp1 = tmp2->wavl_right;
                 __wavl_demote_rank(sibling);
                 __wavl_promote_rank(tmp2);
                 sibling->wavl_left = tmp1 = tmp2->wavl_right;
