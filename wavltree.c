@@ -188,7 +188,7 @@ static void __wavl_erase_fixup(struct wavl_node* node, struct wavl_node* parent,
                 // sibling is 1-1, or 2-1, perform a single rot
                 // note: after a rot, if parent doesn't become a leaf, demote it once,
                 // otherwise demote parent twicei
-                if (parent->wavl_left || tmp2)
+                if (node || tmp2)
                     __wavl_demote_rank(parent);
             }
             __wavl_promote_rank(sibling);
@@ -228,7 +228,7 @@ static void __wavl_erase_fixup(struct wavl_node* node, struct wavl_node* parent,
                 __wavl_set_parent(sibling, tmp2);
                 sibling = tmp2;
             } else {
-                if (parent->wavl_right || tmp2)
+                if (node || tmp2)
                     __wavl_demote_rank(parent);
             }
             __wavl_promote_rank(sibling);
