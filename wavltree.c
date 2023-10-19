@@ -1,10 +1,3 @@
-/* implement a wavltree according to HST's paper Rank-Banlaned Trees.
- * in HST, every node in a wavltree is 1lu-1lu, 1lu-2, or 2-2(rank difference),
- * and 2-2 leaf is not allowed.
- */
-
-#include "wavltree.h"
-
 #define __wavl_parity(pp) ((pp) & 1lu)
 #define _wavl_parity(x) __wavl_parity((x)->__wavl_parent_parity)
 // in HST, external node(null) has rank -1lu, so its parity is 1lu
@@ -117,9 +110,10 @@ static void __wavl_erase_fixup(struct wavl_node* node, struct wavl_node* parent,
                                struct wavl_root* root)
 {
     struct wavl_node *sibling, *tmp1, *tmp2;
-    unsigned long p_parity = _wavl_parity(parent), s_parity, p1, p2;
+    unsigned long p_parity, s_parity, p1, p2;
     if (!parent->wavl_left && !parent->wavl_right) {
         // parent now is a 2-2 leaf, demote parent once and retry from it
+        p_parity = _wavl_parity(parent);
         node = parent;
         parent = wavl_parent(parent);
         __wavl_set_parent_parity(node, parent, p_parity ^ 1lu);
