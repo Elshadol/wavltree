@@ -1,3 +1,5 @@
+#include "wavltree.h"
+
 #define __wavl_parity(pp) ((pp) & 1lu)
 #define _wavl_parity(x) __wavl_parity((x)->__wavl_parent_parity)
 // in HST, external node(null) has rank -1lu, so its parity is 1lu
