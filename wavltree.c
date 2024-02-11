@@ -2,28 +2,28 @@
 
 #define __wavl_parity(pp) ((pp) & 1lu)
 #define _wavl_parity(x) __wavl_parity((x)->__wavl_parent_parity)
-// in HST, external node(null) has rank -1lu, so its parity is 1lu
+// in HST, external node(null) has rank -1, so its parity is 1
 #define wavl_parity(x) ((x) ? _wavl_parity((x)) : 1lu)
 
 #define __wavl_parent(pp) ((struct wavl_node*)(pp & ~3lu))
 #define wavl_parent(x) __wavl_parent((x)->__wavl_parent_parity)
 
 static inline void
-__wavl_set_parent(struct wavl_node *node, struct wavl_node *parent)
-{
-    node->__wavl_parent_parity = _wavl_parity(node) | (unsigned long)parent;
-}
-
-static inline void
 __wavl_set_parent_parity(struct wavl_node *node, struct wavl_node * parent,
-                         unsigned long parity)
+                       unsigned long parity)
 {
     node->__wavl_parent_parity = (unsigned long)parent | parity;
 }
 
 static inline void
+__wavl_set_parent(struct wavl_node *node, struct wavl_node *parent)
+{
+    __wavl_set_parent_parity(node, parent, _wavl_parity(node));
+}
+
+static inline void
 __wavl_change_child(struct wavl_node* old, struct wavl_node* new,
-                    struct wavl_node* parent, struct wavl_root* root)
+                  struct wavl_node* parent, struct wavl_root* root)
 {
     if (parent) {
         if (parent->wavl_left == old)
@@ -36,7 +36,7 @@ __wavl_change_child(struct wavl_node* old, struct wavl_node* new,
 
 static inline void
 __wavl_rotate_set_parents(struct wavl_node *old, struct wavl_node *new,
-                          struct wavl_root *root, unsigned long parity)
+                        struct wavl_root *root, unsigned long parity)
 {
     struct wavl_node *parent = wavl_parent(old);
     new->__wavl_parent_parity = old->__wavl_parent_parity;
@@ -46,28 +46,35 @@ __wavl_rotate_set_parents(struct wavl_node *old, struct wavl_node *new,
 
 void wavl_insert_fixup(struct wavl_node* node, struct wavl_root* root)
 {
-    unsigned long parity = _wavl_parity(node), p_parity;
+    unsigned long p_parity = _wavl_parity(node), parity;
     struct wavl_node *parent = wavl_parent(node), *tmp, *tmp1;
-    while (parent && ((p_parity = _wavl_parity(parent)) == parity)) {
+
+    while (parent) {
+        parity = p_parity;
+        p_parity = _wavl_parity(parent);
+        if (p_parity != parity)
+            break;
+        p_parity ^= 1lu;
+
         tmp = parent->wavl_right;
         if (node != tmp) {
-            // parent from 1lu-1lu to 0-1lu, promote parent once, and retry from parent
-            if (p_parity != wavl_parity(tmp)) {
+            // parent from 1-1 to 0-1, promote parent once, and retry from parent
+            if (parity != wavl_parity(tmp)) {
                 node = parent;
                 parent = wavl_parent(node);
-                __wavl_set_parent_parity(node, parent, parity ^= 1lu);
+                __wavl_set_parent_parity(node, parent, p_parity);
                 continue;
             }
-            //parent now is 0-2, check whether node is 2-1lu
+            // parent now is 0-2, check whether node is 2-1
             tmp = node->wavl_right;
             if (parity != wavl_parity(tmp)) {
-                // node is 2-1lu, need perform a double rotation
+                // node is 2-1, need perform a double rotation
                 // in a double rotation, demote node once, promote tmp once
                 node->wavl_right = tmp1 = tmp->wavl_left;
                 tmp->wavl_left = node;
                 if (tmp1)
                     __wavl_set_parent(tmp1, node);
-                __wavl_set_parent_parity(node, tmp, parity ^ 1lu);
+                __wavl_set_parent_parity(node, tmp, p_parity);
                 node = tmp;
                 tmp = node->wavl_right;
             }
@@ -76,16 +83,16 @@ void wavl_insert_fixup(struct wavl_node* node, struct wavl_root* root)
             node->wavl_right = parent;
             if (tmp)
                 __wavl_set_parent(tmp, parent);
-            __wavl_rotate_set_parents(parent, node, root, p_parity ^ 1lu);
+            __wavl_rotate_set_parents(parent, node, root, p_parity);
             // after a double rotation or single rotation,
             // all violations are restored
             break;
         } else {
             tmp = parent->wavl_left;
-            if (p_parity != wavl_parity(tmp)) {
+            if (parity != wavl_parity(tmp)) {
                 node = parent;
                 parent = wavl_parent(node);
-                __wavl_set_parent_parity(node, parent, parity ^= 1lu);
+                __wavl_set_parent_parity(node, parent, p_parity);
                 continue;
             }
             tmp = node->wavl_left;
@@ -94,7 +101,7 @@ void wavl_insert_fixup(struct wavl_node* node, struct wavl_root* root)
                 tmp->wavl_right = node;
                 if (tmp1)
                     __wavl_set_parent(tmp1, node);
-                __wavl_set_parent_parity(node, tmp, parity ^ 1lu);
+                __wavl_set_parent_parity(node, tmp, p_parity);
                 node = tmp;
                 tmp = node->wavl_left;
             }
@@ -102,17 +109,17 @@ void wavl_insert_fixup(struct wavl_node* node, struct wavl_root* root)
             node->wavl_left = parent;
             if (tmp)
                 __wavl_set_parent(tmp, parent);
-            __wavl_rotate_set_parents(parent, node, root, p_parity ^ 1lu);
+            __wavl_rotate_set_parents(parent, node, root, p_parity);
             break;
         }
     }
 }
 
 static void __wavl_erase_fixup(struct wavl_node* node, struct wavl_node* parent,
-                               struct wavl_root* root)
+                             struct wavl_root* root)
 {
+    unsigned long s_parity, p_parity;
     struct wavl_node *sibling, *tmp1, *tmp2;
-    unsigned long p_parity, s_parity, p1, p2;
     if (!parent->wavl_left && !parent->wavl_right) {
         // parent now is a 2-2 leaf, demote parent once and retry from it
         p_parity = _wavl_parity(parent);
@@ -121,49 +128,49 @@ static void __wavl_erase_fixup(struct wavl_node* node, struct wavl_node* parent,
         __wavl_set_parent_parity(node, parent, p_parity ^ 1lu);
     }
     s_parity = wavl_parity(node);
-    // s_parity stores rank parity of node whose rank demoted
-    while (parent && (p_parity = _wavl_parity(parent)) != s_parity) {
+
+    while (parent) {
+        p_parity = _wavl_parity(parent);
+        if (p_parity == s_parity)
+            break;
+
         sibling = parent->wavl_right;
         if (node != sibling) {
-            s_parity = _wavl_parity(sibling);
-            if (s_parity == p_parity) {
+            if (p_parity ==_wavl_parity(sibling)) {
                 // parent is 3-2, demote parent once and retry from it
                 node = parent;
                 parent = wavl_parent(parent);
-                // now s_parity has the same value as node's rank parity
-                __wavl_set_parent_parity(node, parent, s_parity ^= 1lu);
+                __wavl_set_parent_parity(node, parent, s_parity);
                 continue;
             }
             tmp1 = sibling->wavl_right;
             tmp2 = sibling->wavl_left;
-            p1 = wavl_parity(tmp1);
-            if (s_parity == p1) {
-                p2 = wavl_parity(tmp2);
-                if (s_parity == p2) {
-                    // parent is 3-1lu, sibling is 2-2, demote both parent and sibling once,
+            if (p_parity != wavl_parity(tmp1)) {
+                if (p_parity != wavl_parity(tmp2)) {
+                    // parent is 3-1, sibling is 2-2, demote both parent and sibling once,
                     // then retry from parent
                     // now s_parity has the same value as node's rank parity
-                    __wavl_set_parent_parity(sibling, parent, s_parity ^ 1lu);
+                    __wavl_set_parent_parity(sibling, parent, p_parity);
                     node = parent;
                     parent = wavl_parent(node);
-                    __wavl_set_parent_parity(node, parent, p_parity ^ 1lu);
+                    __wavl_set_parent_parity(node, parent, s_parity);
                     continue;
                 }
-                // sibling is 1lu-2, perform a double rot, demote sibling once,
+                // sibling is 1-2, perform a double rot, demote sibling once,
                 // demote parent twice, promote tmp2 twice,
                 sibling->wavl_left = tmp1 = tmp2->wavl_right;
                 tmp2->wavl_right = sibling;
                 if (tmp1)
                     __wavl_set_parent(tmp1, sibling);
-                __wavl_set_parent_parity(sibling, tmp2, s_parity ^ 1lu);
+                __wavl_set_parent_parity(sibling, tmp2, p_parity);
                 sibling = tmp2;
                 tmp2 = sibling->wavl_left;
             } else {
-                // sibling is 1lu-1lu, or 2-1lu, perform a single rot
+                // sibling is 1-1, or 2-1, perform a single rot
                 // note: after a rot, if parent doesn't become a leaf, demote it once,
                 // otherwise demote parent twicei
                 if (node || tmp2)
-                    p_parity ^= 1lu;
+                    p_parity = s_parity;
             }
             parent->wavl_right = tmp2;
             sibling->wavl_left = parent;
@@ -173,37 +180,34 @@ static void __wavl_erase_fixup(struct wavl_node* node, struct wavl_node* parent,
             break;
         } else {
             sibling = parent->wavl_left;
-            s_parity = _wavl_parity(sibling);
-            if (s_parity == p_parity) {
+            if (p_parity == _wavl_parity(sibling)) {
                 node = parent;
                 parent = wavl_parent(parent);
-                __wavl_set_parent_parity(node, parent, s_parity ^= 1lu);
+                __wavl_set_parent_parity(node, parent, s_parity);
                 continue;
             }
             tmp1 = sibling->wavl_left;
             tmp2 = sibling->wavl_right;
-            p1 = wavl_parity(tmp1);
-            if (s_parity == p1) {
-                p2 = wavl_parity(tmp2);
-                if (s_parity == p2) {
-                    __wavl_set_parent_parity(sibling, parent, s_parity ^ 1lu);
+            if (p_parity != wavl_parity(tmp1)) {
+                if (p_parity != wavl_parity(tmp2)) {
+                    __wavl_set_parent_parity(sibling, parent, p_parity);
                     node = parent;
                     parent = wavl_parent(node);
-                    __wavl_set_parent_parity(node, parent, p_parity ^ 1lu);
+                    __wavl_set_parent_parity(node, parent, s_parity);
                     continue;
                 }
                 sibling->wavl_right = tmp1 = tmp2->wavl_left;
                 tmp2->wavl_left = sibling;
                 if (tmp1)
                     __wavl_set_parent(tmp1, sibling);
-                __wavl_set_parent_parity(sibling, tmp2, s_parity ^ 1lu);
+                __wavl_set_parent_parity(sibling, tmp2, p_parity);
                 sibling = tmp2;
                 tmp2 = sibling->wavl_right;
             } else {
                 if (node || tmp2)
-                    p_parity ^= 1lu;
+                    p_parity = s_parity;
             }
-            parent->wavl_left = tmp2; 
+            parent->wavl_left = tmp2;
             sibling->wavl_right = parent;
             if (tmp2)
                 __wavl_set_parent(tmp2, parent);
@@ -243,7 +247,7 @@ void wavl_erase(struct wavl_node* node, struct wavl_root* root)
 }
 
 void wavl_replace_node(struct wavl_node* victim, struct wavl_node* new,
-                       struct wavl_root* root)
+                     struct wavl_root* root)
 {
     struct wavl_node* parent = wavl_parent(victim);
     __wavl_change_child(victim, new, parent, root);
