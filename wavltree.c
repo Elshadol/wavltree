@@ -120,7 +120,7 @@ static void __wavl_erase_fixup(struct wavl_node* node, struct wavl_node* parent,
 {
     unsigned long s_parity, p_parity;
     struct wavl_node *sibling, *tmp1, *tmp2;
-    if (!parent->wavl_left && !parent->wavl_right) {
+    if (parent->wavl_left == parent->wavl_right) {
         // parent now is a 2-2 leaf, demote parent once and retry from it
         node = parent;
         parent = wavl_parent(node);
@@ -169,7 +169,7 @@ static void __wavl_erase_fixup(struct wavl_node* node, struct wavl_node* parent,
                 // sibling is 1-1, or 2-1, perform a single rot
                 // note: after a rot, if parent doesn't become a leaf, demote it once,
                 // otherwise demote parent twice
-                if (node || tmp2)
+                if (node != tmp2)
                     p_parity = s_parity;
             }
             parent->wavl_right = tmp2;
@@ -204,7 +204,7 @@ static void __wavl_erase_fixup(struct wavl_node* node, struct wavl_node* parent,
                 sibling = tmp2;
                 tmp2 = sibling->wavl_right;
             } else {
-                if (node || tmp2)
+                if (node != tmp2)
                     p_parity = s_parity;
             }
             parent->wavl_left = tmp2;
