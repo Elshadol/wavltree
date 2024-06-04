@@ -79,8 +79,8 @@ void wavl_insert_fixup(struct wavl_node* node, struct wavl_root* root)
                 tmp = node->wavl_right;
             }
             // perform a single rotation, demote parent once
-            parent->wavl_left = tmp;
             node->wavl_right = parent;
+            parent->wavl_left = tmp;
             if (tmp)
                 __wavl_set_parent(tmp, parent);
             __wavl_rotate_set_parents(parent, node, root, p_parity);
@@ -105,8 +105,8 @@ void wavl_insert_fixup(struct wavl_node* node, struct wavl_root* root)
                 node = tmp;
                 tmp = node->wavl_left;
             }
-            parent->wavl_right = tmp;
             node->wavl_left = parent;
+            parent->wavl_right = tmp;
             if (tmp)
                 __wavl_set_parent(tmp, parent);
             __wavl_rotate_set_parents(parent, node, root, p_parity);
@@ -172,8 +172,8 @@ static void __wavl_erase_fixup(struct wavl_node* node, struct wavl_node* parent,
                 if (node != tmp2)
                     p_parity = s_parity;
             }
-            parent->wavl_right = tmp2;
             sibling->wavl_left = parent;
+            parent->wavl_right = tmp2;
             if (tmp2)
                 __wavl_set_parent(tmp2, parent);
             __wavl_rotate_set_parents(parent, sibling, root, p_parity);
@@ -207,8 +207,8 @@ static void __wavl_erase_fixup(struct wavl_node* node, struct wavl_node* parent,
                 if (node != tmp2)
                     p_parity = s_parity;
             }
-            parent->wavl_left = tmp2;
             sibling->wavl_right = parent;
+            parent->wavl_left = tmp2;
             if (tmp2)
                 __wavl_set_parent(tmp2, parent);
             __wavl_rotate_set_parents(parent, sibling, root, p_parity);
