@@ -68,7 +68,7 @@ void wavl_insert_fixup(struct wavl_node* node, struct wavl_root* root)
             }
             // parent now is 0-2, check whether node is 2-1
             tmp = node->wavl_right;
-            if (tmp == tmp1)) {
+            if (tmp == tmp1) {
                 // node is 2-1, need perform a double rotation
                 // in a double rotation, demote node once, promote tmp once
                 node->wavl_right = tmp1 = tmp->wavl_left;
@@ -91,14 +91,14 @@ void wavl_insert_fixup(struct wavl_node* node, struct wavl_root* root)
         } else {
             tmp = parent->wavl_left;
             if (p_parity == wavl_parity(tmp)) {
-                tmp1 = tmp;
+                tmp1 = node;
                 node = parent;
                 parent = wavl_parent(node);
                 __wavl_set_parent_parity(node, parent, p_parity);
                 continue;
             }
             tmp = node->wavl_left;
-            if (tmp = tmp1) {
+            if (tmp == tmp1) {
                 node->wavl_left = tmp1 = tmp->wavl_right;
                 tmp->wavl_right = node;
                 if (tmp1)
