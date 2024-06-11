@@ -179,12 +179,11 @@ __wavl_erase_fixup(struct wavl_node* node, struct wavl_node* parent,
             tmp1 = sibling->wavl_right;
             tmp2 = sibling->wavl_left;
             if (p_parity != wavl_parity(tmp1)) {
-                /*
-                 * parent is 3-1, sibling is 2-2, demote both parent
-                 * and sibling once, then retry from parent.
-                 */
-                if (p_parity != wavl_parity(tmp2)) {
+                /* tmp2 must be nonull in this case */
+                if (p_parity != _wavl_parity(tmp2)) {
                     /*
+                     * parent is 3-1, sibling is 2-2, demote both parent
+                     * and sibling once, then retry from parent.
                      * remember s_parity != p_parity, so we can simply assign
                      * p_parity to sibling instead of demoting rank of sibling
                      */
@@ -240,7 +239,7 @@ __wavl_erase_fixup(struct wavl_node* node, struct wavl_node* parent,
             tmp1 = sibling->wavl_left;
             tmp2 = sibling->wavl_right;
             if (p_parity != wavl_parity(tmp1)) {
-                if (p_parity != wavl_parity(tmp2)) {
+                if (p_parity != _wavl_parity(tmp2)) {
                     __wavl_set_parent_parity(sibling, parent, p_parity);
                     node = parent;
                     parent = wavl_parent(node);
