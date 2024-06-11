@@ -1,4 +1,4 @@
-#include "avlmini.h"
+#include "wavltree.h"
 
 static inline unsigned long _wavl_parity(const struct wavl_node *node)
 {
