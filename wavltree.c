@@ -284,8 +284,8 @@ void wavl_erase(struct wavl_node* node, struct wavl_root* root)
         tmp->wavl_left = child;
         __wavl_set_parent(child, tmp);
         child = tmp->wavl_right;
-        /* node's successor is leftmost under node's right child subtree */
         if (parent != tmp) {
+             /* node's successor is leftmost under node's right child subtree */
             __wavl_set_parent(parent, tmp);
             tmp->wavl_right = parent;
             parent = wavl_parent(tmp);
