@@ -5,7 +5,7 @@
 
 struct wavl_node {
     unsigned long __wavl_parent_parity;
-    // parity of rank, if rank is even, parity is 0, otherwise parity is 1
+    /* parity of rank, if rank is even, parity is 0, otherwise parity is 1 */
     struct wavl_node *wavl_left;
     struct wavl_node *wavl_right;
 } __attribute__((aligned(sizeof(long))));
@@ -39,14 +39,20 @@ struct wavl_node *wavl_first(const struct wavl_root *);
 struct wavl_node *wavl_last(const struct wavl_root *);
 
 void wavl_replace_node(struct wavl_node *victim, struct wavl_node *newnode,
-                      struct wavl_root *root);
+                       struct wavl_root *root);
 
-static inline void wavl_link_node(struct wavl_node *node, struct wavl_node *parent,
-                                 struct wavl_node **wavl_link)
+static inline void 
+wavl_link_node(struct wavl_node *node, struct wavl_node *parent,
+               struct wavl_node **wavl_link)
 {
     node->__wavl_parent_parity = (unsigned long)parent;
     node->wavl_left = node->wavl_right = NULL;
     *wavl_link = node;
 }
 
-#endif	/* wavlTREE_INCLUDED */
+static inline void wavl_erase_init(struct wavl_node *n, struct wavl_root *root)
+{
+	wavl_erase(n, root);
+	WAVL_CLEAR_NODE(n);
+}
+#endif	/* WAVLTREE_INCLUDED */
