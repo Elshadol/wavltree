@@ -163,7 +163,7 @@ __wavl_erase_fixup(struct wavl_node* node, struct wavl_node* parent,
 
         sibling = parent->wavl_right;
         if (node != sibling) {  /* node == parent->wavl_left */
-            if (s_parity !=_wavl_parity(sibling)) {
+            if (s_parity != _wavl_parity(sibling)) {
                 /* parent is 3-2, demote parent once and retry from it */
                 node = parent;
                 parent = wavl_parent(node);
