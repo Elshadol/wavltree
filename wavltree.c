@@ -11,7 +11,12 @@ static inline unsigned long wavl_parity(const struct wavl_node *node)
     return (node ? _wavl_parity(node) : 1);
 }
 
-static inline struct wavl_node * wavl_parent(const struct wavl_node *node)
+static inline struct wavl_node *wavl_even_parent(const struct wavl_node *node)
+{
+    return (struct wavl_node *)node->__wavl_parent_parity;
+}
+
+static inline struct wavl_node *wavl_parent(const struct wavl_node *node)
 {
     return (struct wavl_node *)(node->__wavl_parent_parity & ~3lu);
 }
@@ -60,7 +65,7 @@ __wavl_rotate_set_parents(struct wavl_node *old, struct wavl_node *new,
 void wavl_insert_fixup(struct wavl_node* node, struct wavl_root* root)
 {
     unsigned long p_parity, parity = _wavl_parity(node);
-    struct wavl_node *parent = wavl_parent(node), *tmp, *tmp1;
+    struct wavl_node *parent = wavl_even_parent(node), *tmp, *tmp1;
 
     /* if after promotion, node is the root, then we're done */
     while (parent) {
