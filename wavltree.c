@@ -66,6 +66,7 @@ void wavl_insert_fixup(struct wavl_node *node, struct wavl_root *root)
     while (parent) {
         if (parity != _wavl_parity(parent))
             break;
+        
         parity ^= 1lu;
 
         tmp1 = parent->wavl_right;
@@ -128,13 +129,15 @@ static inline void __wavl_erase_fixup(struct wavl_node *node,
     struct wavl_node *sibling, *tmp1, *tmp2;
 
     if (parent->wavl_left == parent->wavl_right) {
+        p1 ^= 1lu;
         node = parent;
         parent = wavl_parent(node);
-        p1 ^= 1lu;
         __wavl_set_parent_parity(node, parent, p1);
+        if (!parent)
+            return;
     }
 
-    while (parent) {
+    do {
         p2 = _wavl_parity(parent);
         if (p1 == p2)
             break;
@@ -210,7 +213,7 @@ static inline void __wavl_erase_fixup(struct wavl_node *node,
             __wavl_rotate_set_parents(parent, sibling, root, p2);
             break;
         }
-    }
+    } while (parent);
 }
 
 void wavl_erase(struct wavl_node *node, struct wavl_root *root)
