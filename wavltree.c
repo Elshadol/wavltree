@@ -240,7 +240,7 @@ void wavl_erase(struct wavl_node *node, struct wavl_root *root)
     }
     __wavl_change_child(node, tmp, parent1, root);
     if (child)
-        __wavl_set_parent(child, parent);
+        child->__wavl_parent_parity = (unsigned long)parent;
     if (parent)
         __wavl_erase_fixup(child, parent, root);
 }
