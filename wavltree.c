@@ -123,9 +123,10 @@ void wavl_insert_fixup(struct wavl_node *node, struct wavl_root *root)
 
 static inline void __wavl_erase_fixup(struct wavl_node *node,
                                       struct wavl_node *parent,
+                                      unsigned long p1,
                                       struct wavl_root *root)
 {
-    unsigned long p1 = wavl_parity(node), p2;
+    unsigned long p2;
     struct wavl_node *sibling, *tmp1, *tmp2;
 
     if (parent->wavl_left == parent->wavl_right) {
@@ -218,6 +219,7 @@ static inline void __wavl_erase_fixup(struct wavl_node *node,
 
 void wavl_erase(struct wavl_node *node, struct wavl_root *root)
 {
+    unsigned long p1 = 1lu;
     struct wavl_node *child = node->wavl_left, *tmp = node->wavl_right;
     struct wavl_node *parent, *parent1 = wavl_parent(node);
     if (!child || !tmp) {
@@ -239,10 +241,12 @@ void wavl_erase(struct wavl_node *node, struct wavl_root *root)
         tmp->__wavl_parent_parity = node->__wavl_parent_parity;
     }
     __wavl_change_child(node, tmp, parent1, root);
-    if (child)
+    if (child) {
+        p1 = 0lu;
         child->__wavl_parent_parity = (unsigned long)parent;
+    }
     if (parent)
-        __wavl_erase_fixup(child, parent, root);
+        __wavl_erase_fixup(child, parent, p1, root);
 }
 
 void wavl_replace_node(struct wavl_node *victim, struct wavl_node *new,
