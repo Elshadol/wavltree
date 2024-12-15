@@ -1,13 +1,13 @@
 #include "wavltree.h"
 
-static inline unsigned long _wavl_parity(const struct wavl_node *node)
+static inline unsigned long __wavl_parity(const struct wavl_node *node)
 {
     return (node->__wavl_parent_parity & 1lu);
 }
 
 static inline unsigned long wavl_parity(const struct wavl_node *node)
 {
-    return (node ? _wavl_parity(node) : 1lu);
+    return (node ? __wavl_parity(node) : 1lu);
 }
 
 static inline struct wavl_node *wavl_even_parent(const struct wavl_node *node)
@@ -20,17 +20,17 @@ static inline struct wavl_node *wavl_parent(const struct wavl_node *node)
     return (struct wavl_node *)(node->__wavl_parent_parity & ~3lu);
 }
 
-static inline void __wavl_set_parent_parity(struct wavl_node *node,
-                                            struct wavl_node *parent,
-                                            unsigned long parity)
+static inline void wavl_set_parent_parity(struct wavl_node *node,
+                                          struct wavl_node *parent,
+                                          unsigned long parity)
 {
     node->__wavl_parent_parity = (unsigned long)parent + parity;
 }
 
-static inline void __wavl_set_parent(struct wavl_node *node,
-                                     struct wavl_node *parent)
+static inline void wavl_set_parent(struct wavl_node *node,
+                                   struct wavl_node *parent)
 {
-    __wavl_set_parent_parity(node, parent, _wavl_parity(node));
+    wavl_set_parent_parity(node, parent, __wavl_parity(node));
 }
 
 static inline void __wavl_change_child(struct wavl_node *old,
@@ -54,7 +54,7 @@ static inline void __wavl_rotate_set_parents(struct wavl_node *old,
 {
     struct wavl_node *parent = wavl_parent(old);
     new->__wavl_parent_parity = old->__wavl_parent_parity;
-    __wavl_set_parent_parity(old, new, parity);
+    wavl_set_parent_parity(old, new, parity);
     __wavl_change_child(old, new, parent, root);
 }
 
@@ -64,7 +64,8 @@ void wavl_insert_fixup(struct wavl_node *node, struct wavl_root *root)
     struct wavl_node *parent = wavl_even_parent(node), *tmp1, *tmp2;
 
     while (parent) {
-        if (parity != _wavl_parity(parent))
+        /* after promotion, node from 2-child to 1-child, we're done */
+        if (parity != __wavl_parity(parent))
             break;
         
         parity ^= 1lu;
@@ -72,25 +73,55 @@ void wavl_insert_fixup(struct wavl_node *node, struct wavl_root *root)
         tmp1 = parent->wavl_right;
         if (node != tmp1) {
             if (parity == wavl_parity(tmp1)) {
+                 /*
+                  * case 1 - promote
+                  *
+                  *         n-p           p
+                  *            \  -->    / \
+                  *             s       n   \
+                  *                          s
+                  */
                 node = parent;
                 parent = wavl_parent(node);
-                __wavl_set_parent_parity(node, parent, parity);
+                wavl_set_parent_parity(node, parent, parity);
                 continue;
             }
+            
             tmp1 = node->wavl_right;
             if (parity == wavl_parity(tmp1)) {
+                 /*
+                  * case 2 - left rotate at node
+                  *
+                  *      n-p            t1-p
+                  *     / \    -->     /
+                  *    /   t1         n
+                  *   t2             /
+                  *                 t2
+                  *
+                  * after rotate, this turn to case 3
+                  */
                 node->wavl_right = tmp2 = tmp1->wavl_left;
                 tmp1->wavl_left = node;
                 if (tmp2)
-                    __wavl_set_parent(tmp2, node);
-                __wavl_set_parent_parity(node, tmp1, parity);
+                    wavl_set_parent(tmp2, node);
+                wavl_set_parent_parity(node, tmp1, parity);
                 node = tmp1;
                 tmp1 = node->wavl_right;
             }
-            node->wavl_right = parent;
+
+            /*
+             * case 3- right rotate at parent
+             *
+             *      n-p  -->   n
+             *     / \        / \
+             *    t2  \     t2   p
+             *        t1        /
+             *                 t1
+             */
             parent->wavl_left = tmp1;
+            node->wavl_right = parent;
             if (tmp1)
-                __wavl_set_parent(tmp1, parent);
+                wavl_set_parent(tmp1, parent);
             __wavl_rotate_set_parents(parent, node, root, parity);
             break;
         } else {
@@ -98,23 +129,25 @@ void wavl_insert_fixup(struct wavl_node *node, struct wavl_root *root)
             if (parity == wavl_parity(tmp1)) {
                 node = parent;
                 parent = wavl_parent(node);
-                __wavl_set_parent_parity(node, parent, parity);
+                wavl_set_parent_parity(node, parent, parity);
                 continue;
             }
+            
             tmp1 = node->wavl_left;
             if (parity == wavl_parity(tmp1)) {
                 node->wavl_left = tmp2 = tmp1->wavl_right;
                 tmp1->wavl_right = node;
                 if (tmp2)
-                    __wavl_set_parent(tmp2, node);
-                __wavl_set_parent_parity(node, tmp1, parity);
+                    wavl_set_parent(tmp2, node);
+                wavl_set_parent_parity(node, tmp1, parity);
                 node = tmp1;
                 tmp1 = node->wavl_left;
             }
-            node->wavl_left = parent;
+
             parent->wavl_right = tmp1;
+            node->wavl_left = parent;
             if (tmp1)
-                __wavl_set_parent(tmp1, parent);
+                wavl_set_parent(tmp1, parent);
             __wavl_rotate_set_parents(parent, node, root, parity);
             break;
         }
@@ -130,87 +163,135 @@ static inline void __wavl_erase_fixup(struct wavl_node *node,
     struct wavl_node *sibling, *tmp1, *tmp2;
 
     if (parent->wavl_left == parent->wavl_right) {
+         /* if parent become a leaf, demote parent once, and retry from it */
         p1 ^= 1lu;
         node = parent;
         parent = wavl_parent(node);
-        __wavl_set_parent_parity(node, parent, p1);
+        wavl_set_parent_parity(node, parent, p1);
         if (!parent)
             return;
     }
 
     do {
-        p2 = _wavl_parity(parent);
+        p2 = __wavl_parity(parent);
+        /* after demote, node from 1-child to 2-child, we're done */
         if (p1 == p2)
             break;
 
         sibling = parent->wavl_right;
         if (node != sibling) {
-            if (p1 != _wavl_parity(sibling)) {
+            if (p1 != __wavl_parity(sibling)) {
+                /*
+                 * case 1 - demote parent once
+                 *          p              p
+                 *         / \    -->     / \
+                 *        /   \          /   s
+                 *       /     s        n
+                 *      n
+                 */
                 node = parent;
                 parent = wavl_parent(node);
-                __wavl_set_parent_parity(node, parent, p1);
+                wavl_set_parent_parity(node, parent, p1);
                 continue;
             }
+            
             tmp1 = sibling->wavl_right;
             tmp2 = sibling->wavl_left;
             if (p2 != wavl_parity(tmp1)) {
-                if (p2 != _wavl_parity(tmp2)) {
-                    __wavl_set_parent_parity(sibling, parent, p2);
+                if (p2 != __wavl_parity(tmp2)) {
+                     /*
+                      * case 2 - demote both parent and sibling once
+                      *          p                    p
+                      *         / \                  / \
+                      *        /   s       -->      /   s
+                      *       /   / \              n   / \
+                      *      n   /   \                t2  t1
+                      *         t2    t1
+                      * after rotate, this turn to case 4
+                      */
+                    wavl_set_parent_parity(sibling, parent, p2);
                     node = parent;
                     parent = wavl_parent(node);
-                    __wavl_set_parent_parity(node, parent, p1);
+                    wavl_set_parent_parity(node, parent, p1);
                     continue;
                 }
+
+                /*
+                 * case 3 - right rotate at sibling
+                 *            p                          p
+                 *           / \                        / \
+                 *          /   s         -->          /   t2
+                 *         /   / \                    /     \
+                 *        n   t2  \                  n       s
+                 *                 t1                         \
+                 *                                             t1
+                 */
                 sibling->wavl_left = tmp1 = tmp2->wavl_right;
                 tmp2->wavl_right = sibling;
                 if (tmp1)
-                    __wavl_set_parent(tmp1, sibling);
-                __wavl_set_parent_parity(sibling, tmp2, p2);
+                    wavl_set_parent(tmp1, sibling);
+                wavl_set_parent_parity(sibling, tmp2, p2);
                 sibling = tmp2;
                 tmp2 = sibling->wavl_left;
             } else {
+                 /* in case 4, if after left rotate, parent doesnot become a leaf,
+                  * demote its rank once. Otherwise, demote twice.
+                  */
                 if (node != tmp2)
                     p2 = p1;
             }
-            sibling->wavl_left = parent;
+
+            /*
+             * case 4 - left rotate at parent
+             *        p                 s
+             *       / \               / \
+             *      /   s     -->     p   \
+             *     /   / \           / \   t1
+             *    n   /   t1        /   \
+             *       t2            n    t2
+             */
             parent->wavl_right = tmp2;
+            sibling->wavl_left = parent;
             if (tmp2)
-                __wavl_set_parent(tmp2, parent);
+                wavl_set_parent(tmp2, parent);
             __wavl_rotate_set_parents(parent, sibling, root, p2);
             break;
         } else {
             sibling = parent->wavl_left;
-            if (p1 != _wavl_parity(sibling)) {
+            if (p1 != __wavl_parity(sibling)) {
                 node = parent;
                 parent = wavl_parent(node);
-                __wavl_set_parent_parity(node, parent, p1);
+                wavl_set_parent_parity(node, parent, p1);
                 continue;
             }
+            
             tmp1 = sibling->wavl_left;
             tmp2 = sibling->wavl_right;
             if (p2 != wavl_parity(tmp1)) {
-                if (p2 != _wavl_parity(tmp2)) {
-                    __wavl_set_parent_parity(sibling, parent, p2);
+                if (p2 != __wavl_parity(tmp2)) {
+                    wavl_set_parent_parity(sibling, parent, p2);
                     node = parent;
                     parent = wavl_parent(node);
-                    __wavl_set_parent_parity(node, parent, p1);
+                    wavl_set_parent_parity(node, parent, p1);
                     continue;
                 }
+                
                 sibling->wavl_right = tmp1 = tmp2->wavl_left;
                 tmp2->wavl_left = sibling;
                 if (tmp1)
-                    __wavl_set_parent(tmp1, sibling);
-                __wavl_set_parent_parity(sibling, tmp2, p2);
+                    wavl_set_parent(tmp1, sibling);
+                wavl_set_parent_parity(sibling, tmp2, p2);
                 sibling = tmp2;
                 tmp2 = sibling->wavl_right;
             } else {
                 if (node != tmp2)
                     p2 = p1;
             }
-            sibling->wavl_right = parent;
+            
             parent->wavl_left = tmp2;
+            sibling->wavl_right = parent;
             if (tmp2)
-                __wavl_set_parent(tmp2, parent);
+                wavl_set_parent(tmp2, parent);
             __wavl_rotate_set_parents(parent, sibling, root, p2);
             break;
         }
@@ -230,10 +311,10 @@ void wavl_erase(struct wavl_node *node, struct wavl_root *root)
         while (tmp->wavl_left)
             tmp = tmp->wavl_left;
         tmp->wavl_left = child;
-        __wavl_set_parent(child, tmp);
+        wavl_set_parent(child, tmp);
         child = tmp->wavl_right;
         if (parent != tmp) {
-            __wavl_set_parent(parent, tmp);
+            wavl_set_parent(parent, tmp);
             tmp->wavl_right = parent;
             parent = wavl_parent(tmp);
             parent->wavl_left = child;
@@ -256,9 +337,9 @@ void wavl_replace_node(struct wavl_node *victim, struct wavl_node *new,
 
     __wavl_change_child(victim, new, parent, root);
     if (victim->wavl_left)
-        __wavl_set_parent(victim->wavl_left, new);
+        wavl_set_parent(victim->wavl_left, new);
     if (victim->wavl_right)
-        __wavl_set_parent(victim->wavl_right, new);
+        wavl_set_parent(victim->wavl_right, new);
 
     *new = *victim;
 }
