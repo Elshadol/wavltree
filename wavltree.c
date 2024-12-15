@@ -1,5 +1,24 @@
 #include "wavltree.h"
 
+/*
+ * Rank difference of a node is the difference
+ * between the rank of the node and the rank of its parent.
+ *
+ * A node is a x,y-node if it has one child with rank difference x
+ * and one child with rank difference y
+ *
+ * A node is a x-child if its rank difference is x
+ *
+ * in this implementation, we use rank parity instead of rank.
+ * so parity(n) == parity(p) means rank difference of n is 0 or 2,
+ * parity(n) != parity(p) means rank difference of n is 1 or 3
+ *
+ * All nodes of a weak AVL tree satisfy the following properties:
+ * 1) the rank difference of any non-root node is 1 or 2.
+ * 2) external node(null) has rank -1
+ * 3) leaf node with two external-node is a 1,1-node.
+ */
+
 static inline unsigned long __wavl_parity(const struct wavl_node *node)
 {
     return (node->__wavl_parent_parity & 1lu);
@@ -7,6 +26,7 @@ static inline unsigned long __wavl_parity(const struct wavl_node *node)
 
 static inline unsigned long wavl_parity(const struct wavl_node *node)
 {
+    /* external node(null) has rank -1, so its rank parity is 1 */
     return (node ? __wavl_parity(node) : 1lu);
 }
 
@@ -47,6 +67,11 @@ static inline void __wavl_change_child(struct wavl_node *old,
         root->wavl_node = new;
 }
 
+/*
+ * Helper function(stolen from linux rbtree) for rotations:
+ * - old's parent and rank parity get assigned to new
+ * - old gets assigned new as a parent and 'parity' as rank parity
+ */
 static inline void __wavl_rotate_set_parents(struct wavl_node *old,
                                              struct wavl_node *new,
                                              struct wavl_root *root,
@@ -74,7 +99,8 @@ void wavl_insert_fixup(struct wavl_node *node, struct wavl_root *root)
         if (node != tmp1) {
             if (parity == wavl_parity(tmp1)) {
                  /*
-                  * case 1 - promote
+                  * case 1: node’s sibling has rank-difference 1.
+                  * In this case, we promote parent once
                   *
                   *         n-p           p
                   *            \  -->    / \
@@ -90,15 +116,15 @@ void wavl_insert_fixup(struct wavl_node *node, struct wavl_root *root)
             tmp1 = node->wavl_right;
             if (parity == wavl_parity(tmp1)) {
                  /*
-                  * case 2 - left rotate at node
+                  * case 2: node’s sibling has rank-difference 2 and
+                  * node's right child has rank-difference 1.
+                  * left rotate at node, after rotate, this turn to case 3
                   *
                   *      n-p            t1-p
                   *     / \    -->     /
                   *    /   t1         n
                   *   t2             /
                   *                 t2
-                  *
-                  * after rotate, this turn to case 3
                   */
                 node->wavl_right = tmp2 = tmp1->wavl_left;
                 tmp1->wavl_left = node;
@@ -182,7 +208,8 @@ static inline void __wavl_erase_fixup(struct wavl_node *node,
         if (node != sibling) {
             if (p1 != __wavl_parity(sibling)) {
                 /*
-                 * case 1 - demote parent once
+                 * case 1: node's sibling has rank difference 2
+                 * demote parent once
                  *          p              p
                  *         / \    -->     / \
                  *        /   \          /   s
@@ -200,14 +227,14 @@ static inline void __wavl_erase_fixup(struct wavl_node *node,
             if (p2 != wavl_parity(tmp1)) {
                 if (p2 != __wavl_parity(tmp2)) {
                      /*
-                      * case 2 - demote both parent and sibling once
+                      * case 2: both children of sibling have rank-difference 2
+                      * demote both parent and sibling once
                       *          p                    p
                       *         / \                  / \
                       *        /   s       -->      /   s
                       *       /   / \              n   / \
                       *      n   /   \                t2  t1
                       *         t2    t1
-                      * after rotate, this turn to case 4
                       */
                     wavl_set_parent_parity(sibling, parent, p2);
                     node = parent;
@@ -217,7 +244,8 @@ static inline void __wavl_erase_fixup(struct wavl_node *node,
                 }
 
                 /*
-                 * case 3 - right rotate at sibling
+                 * case 3 - right rotate at sibling, 
+                 * after rotate, this turn to case 4
                  *            p                          p
                  *           / \                        / \
                  *          /   s         -->          /   t2
