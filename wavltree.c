@@ -326,6 +326,7 @@ static inline void __wavl_erase_fixup(struct wavl_node *node,
     } while (parent);
 }
 
+/* stolen from freebsd's tree.h */
 void wavl_erase(struct wavl_node *node, struct wavl_root *root)
 {
     unsigned long p1 = 1lu;
