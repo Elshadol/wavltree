@@ -1,7 +1,7 @@
 #include "wavltree.h"
 
 /*
- * Rank difference of a node is the difference betweenthe rank of the node
+ * Rank difference of a node is the difference between the rank of the node
  * and the rank of node's parent.
  *
  * A node is a x,y-node if it has one child with rank difference x,
@@ -103,7 +103,7 @@ void wavl_insert_fixup(struct wavl_node *node, struct wavl_root *root) {
       break;
 
     /*
-     * Sine node and parent have the same rank parity,
+     * Since node and parent have the same rank and rank parity,
      * we flip p1 for promoting/demoting node and parent later.
      */
     p1 ^= 1lu;
@@ -154,8 +154,8 @@ void wavl_insert_fixup(struct wavl_node *node, struct wavl_root *root) {
       }
 
       /*
-       * Case 3: node’s sibling is a 2-child and node's right child
-       * is a 2-child (right rotate at parent).
+       * Case 3: node’s sibling is a 2-child and node's left child
+       * is a 1-child (right rotate at parent).
        *
        *      n-p    -->   n
        *     / \ \        / \
@@ -301,7 +301,7 @@ static inline void __wavl_erase_fixup(struct wavl_node *node,
          * In single-rotate case, if parent doesn't become a leaf,
          * demote parent's rank once by a single flip.
          */
-        if (node != tmp2)
+        if (tmp2)
           p2 = p1;
         /*
          * if parent will become a leaf(both node and tmp2 are null),
@@ -354,7 +354,7 @@ static inline void __wavl_erase_fixup(struct wavl_node *node,
         sibling = tmp2;
         tmp2 = sibling->wavl_right;
       } else {
-        if (node != tmp2)
+        if (tmp2)
           p2 = p1;
       }
 
