@@ -368,13 +368,16 @@ static inline void __wavl_erase_fixup(struct wavl_node *node,
   } while (parent);
 }
 
+#define __wavl_parent(pp) (struct wavl_node *)((pp) & ~3lu)
+
 /* stolen from freebsd's tree.h */
 void wavl_erase(struct wavl_node *node, struct wavl_root *root) {
   unsigned long p1 = 1lu;
+  unsigned long pp = node->__wavl_parent_parity;
+  struct wavl_node *parent, *parent1 = __wavl_parent(pp);
   struct wavl_node *child = node->wavl_left, *tmp = node->wavl_right;
-  struct wavl_node *parent, *parent1 = wavl_parent(node);
   if (!child || !tmp) {
-    tmp = child = (!tmp ? child : tmp);
+    tmp = child = (!child ? tmp : child);
     parent = parent1;
   } else {
     parent = tmp;
@@ -390,7 +393,7 @@ void wavl_erase(struct wavl_node *node, struct wavl_root *root) {
       parent = wavl_parent(tmp);
       parent->wavl_left = child;
     }
-    tmp->__wavl_parent_parity = node->__wavl_parent_parity;
+    tmp->__wavl_parent_parity = pp;
   }
   __wavl_change_child(node, tmp, parent1, root);
   if (child) {
